@@ -1,230 +1,283 @@
-# Lexsy AI Legal Document Assistant
+# 🤖 Lexsy AI - Legal Document Assistant
 
-A production-ready full-stack web application for AI-powered legal document automation. Upload .docx legal documents, detect placeholders, and fill them through conversational AI.
+> AI-powered legal document automation platform built with Next.js, FastAPI, and Google Gemini AI
 
-## 🚀 Features
+## ✨ Features
 
-- **Smart Document Upload**: Drag-and-drop .docx file upload with progress tracking
-- **AI Placeholder Detection**: Automatically detects placeholders like `[Company Name]` or `___________`
-- **Conversational Filling**: Chat with AI to fill placeholders through guided questions
-- **Document Generation**: Generate completed documents with original formatting preserved
-- **Modern UI**: Beautiful, responsive interface built with Next.js and Tailwind CSS
+- **📄 Document Upload** - Upload `.docx` legal documents
+- **🔍 Smart Placeholder Detection** - Regex + AI hybrid approach for cost optimization
+- **💬 Conversational AI Assistant** - Natural language chat powered by Google Gemini 2.5 Flash
+- **📝 Intelligent Document Analysis** - Explains legal documents in plain English
+- **🎯 Interactive Field Filling** - Click-to-fill interface with real-time progress
+- **🔐 Secure Authentication** - JWT-based user authentication
+- **⬇️ Document Generation** - Preview and download completed documents
+- **🎨 Beautiful UI** - Modern, responsive design with Tailwind CSS
 
-## 🛠 Tech Stack
+## 🏗️ Tech Stack
 
 ### Frontend
-- **Next.js 14** with App Router and TypeScript
-- **Tailwind CSS** for styling
-- **shadcn/ui** for UI components
-- **React Query** for API state management
+- **Next.js 14** (App Router, React 18, TypeScript)
+- **Tailwind CSS** + **shadcn/ui** components
 - **Framer Motion** for animations
-- **Zustand** for client state management
+- **Zustand** for state management
+- **React Query** for async state
+- **Axios** for API calls
 
 ### Backend
-- **FastAPI** with Python 3.11
+- **FastAPI** (Python 3.11)
+- **Google Gemini 2.5 Flash** AI model
 - **python-docx** for document processing
-- **OpenAI GPT-4o-mini** for AI features
-- **Uvicorn** for ASGI server
-
-## 📋 Prerequisites
-
-- Node.js 18+ and npm/pnpm
-- Python 3.11+
-- OpenAI API key
+- **JWT** authentication
+- **Uvicorn** ASGI server
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+### Prerequisites
+- Node.js 18+ and npm
+- Python 3.11+
+- Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
 
+### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone <your-repo-url>
 cd LegAIlity
 ```
 
 ### 2. Backend Setup
-
 ```bash
 cd backend
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Create environment file
+# Create .env file
 cp .env.example .env
-# Add your OpenAI API key to .env
+# Edit .env and add your GEMINI_API_KEY
+
+# Start server
+uvicorn main_simple:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. Frontend Setup
+Backend will run on: `http://localhost:8000`
 
+### 3. Frontend Setup
 ```bash
 cd frontend
 
 # Install dependencies
 npm install
 
-# Create environment file
-cp .env.local.example .env.local
-# Update API URL if needed (default: http://localhost:8000/api)
-```
+# Create .env.local (optional, defaults to localhost:8000)
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000/api" > .env.local
 
-### 4. Run the Application
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-source venv/bin/activate
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
+# Start development server
 npm run dev
 ```
 
-Visit `http://localhost:3000` to use the application.
+Frontend will run on: `http://localhost:3000`
+
+### 4. Test It Out!
+1. Open `http://localhost:3000`
+2. Login with demo credentials:
+   - Email: `demo@lexsy.ai`
+   - Password: `demo123`
+3. Upload a legal document (`.docx`)
+4. Chat with Lexsy AI to fill in the fields!
+
+## 💬 How to Use Conversational AI
+
+### Ask Questions
+```
+You: "What is a valuation cap?"
+Lexsy: "A valuation cap is essentially an upper limit on the price
+       per share that an investor's money will convert into..."
+```
+
+### Get Clarifications
+```
+You: "Should I consult a lawyer?"
+Lexsy: "That's an excellent question! For almost any legal document,
+       it's always a good idea to consult with a qualified lawyer..."
+```
+
+### Fill Fields Naturally
+- **Click on any field pill** to start filling it
+- **Type naturally** in the chat
+- **Ask questions anytime** - Lexsy will answer first, then guide you
+- **Auto-completion** tracking with visual progress
 
 ## 📁 Project Structure
 
 ```
 LegAIlity/
 ├── backend/
-│   ├── main.py                 # FastAPI application entry
-│   ├── routes/
-│   │   ├── parse.py           # Document parsing endpoint
-│   │   ├── fill.py            # Document filling endpoint
-│   │   └── chat.py            # Chat/conversation endpoint
-│   ├── utils/
-│   │   ├── doc_parser.py      # Document parsing utilities
-│   │   ├── doc_filler.py      # Document filling utilities
-│   │   └── openai_client.py   # OpenAI integration
-│   └── requirements.txt
-│
+│   ├── routes/            # API endpoints
+│   │   ├── auth.py        # Authentication
+│   │   ├── parse_gemini.py     # Document parsing
+│   │   ├── chat_conversational.py  # Conversational AI
+│   │   ├── fill_no_auth.py    # Document filling
+│   │   └── ...
+│   ├── utils/             # Utilities
+│   │   ├── gemini_client.py   # Gemini AI integration
+│   │   ├── doc_parser.py      # Document processing
+│   │   ├── doc_filler.py      # Placeholder replacement
+│   │   └── auth.py            # Auth utilities
+│   ├── main_simple.py     # FastAPI application
+│   ├── requirements.txt   # Python dependencies
+│   └── .env.example       # Environment variables template
 ├── frontend/
 │   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx       # Main application page
-│   │   │   └── layout.tsx     # Root layout
-│   │   ├── components/
-│   │   │   ├── UploadZone.tsx # File upload component
-│   │   │   ├── ChatUI.tsx     # Chat interface
-│   │   │   └── DocumentPreview.tsx # Preview & download
-│   │   └── lib/
-│   │       ├── api.ts         # API client
-│   │       └── store.ts       # State management
-│   └── package.json
-│
-└── README.md
+│   │   ├── app/           # Next.js app router
+│   │   ├── components/    # React components
+│   │   │   ├── ChatUIConversational.tsx
+│   │   │   ├── UploadZone.tsx
+│   │   │   ├── DocumentPreview.tsx
+│   │   │   └── ...
+│   │   └── lib/           # Utilities
+│   │       ├── api.ts     # API client
+│   │       └── store.ts   # Zustand store
+│   ├── package.json
+│   └── .gitignore
+├── .gitignore
+├── README.md
+└── DEPLOYMENT.md
 ```
 
-## 🔧 API Endpoints
+## 🎯 Key Workflows
 
-### POST `/api/parse`
-Upload and parse a .docx document to extract placeholders.
+### Document Processing Flow
+1. User uploads `.docx` file
+2. Backend extracts text and placeholders (regex + AI fallback)
+3. Gemini AI analyzes document and provides explanation
+4. User chats with AI to understand document
+5. User fills fields through conversation or clicking
+6. Backend generates filled document
+7. User previews and downloads
 
-**Request:** Multipart form data with `file` field
-**Response:**
-```json
-{
-  "placeholders": ["Company Name", "Investor Name", "Amount"],
-  "document_id": "uuid",
-  "filename": "document.docx"
-}
+### Cost Optimization Strategy
+- **Regex first**: Detects common placeholder patterns (free)
+- **AI fallback**: Only uses Gemini if regex finds < 3 placeholders
+- **Simple questions**: Hardcoded for common fields (name, date, amount)
+- **AI questions**: Gemini only for complex legal terms
+
+## 🔒 Security Features
+
+- ✅ API keys stored in environment variables (never in code)
+- ✅ `.env` files in `.gitignore`
+- ✅ JWT-based authentication
+- ✅ Password hashing (SHA256 for demo, use bcrypt in production)
+- ✅ CORS configuration
+- ✅ Input validation
+
+## 📊 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/register` - Register new user
+- `GET /api/auth/me` - Get current user
+
+### Document Processing
+- `POST /api/parse-gemini` - Parse document with AI
+- `POST /api/chat/conversational` - Conversational AI chat
+- `POST /api/fill-no-auth` - Fill document placeholders
+- `GET /health` - Health check
+
+## 🎨 UI Components
+
+- **UploadZone** - Drag-and-drop file upload with progress
+- **ChatUIConversational** - Interactive conversational AI chat
+- **DocumentPreview** - Preview and download filled documents
+- **AuthForm** - Login and registration
+- **AIToggle** - Switch between AI and simple modes
+
+## 🧪 Testing
+
+### Test the Conversational AI (Backend)
+```bash
+curl -X POST http://localhost:8000/api/chat/conversational \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_message": "What is a SAFE agreement?",
+    "placeholders": ["Company Name"],
+    "current_data": {}
+  }'
 ```
 
-### POST `/api/chat/question`
-Get the next question for filling placeholders.
-
-**Request:**
-```json
-{
-  "placeholders": ["Company Name", "Investor Name"],
-  "current_data": {"Company Name": "Acme Corp"},
-  "current_placeholder_index": 1
-}
+### Test Document Parsing
+```bash
+curl -X POST http://localhost:8000/api/parse-gemini \
+  -F "file=@path/to/your/document.docx"
 ```
 
-### POST `/api/chat/answer`
-Submit an answer for a placeholder.
+## 🌟 Features in Detail
 
-**Request:**
-```json
-{
-  "placeholder": "Investor Name",
-  "answer": "John Doe",
-  "current_data": {"Company Name": "Acme Corp"}
-}
+### Conversational AI
+- **Contextual understanding** - Knows document content and conversation history
+- **Educational responses** - Explains legal terms in plain English
+- **Smart question detection** - Distinguishes questions from field answers
+- **Natural dialogue** - Flows like talking to a legal advisor friend
+- **Flexible interaction** - Mix Q&A and field-filling naturally
+
+### Cost Optimization
+- Hybrid regex + AI approach
+- Intelligent caching
+- Selective AI usage for complex queries only
+- Estimated cost: **~$0.01 per document** with Gemini 2.5 Flash
+
+### User Experience
+- Auto-scrolling chat
+- Real-time progress tracking
+- Interactive field pills
+- Smooth animations
+- Mobile-responsive design
+
+## 📝 Environment Variables
+
+### Backend Required
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+JWT_SECRET_KEY=your_jwt_secret_here
 ```
 
-### POST `/api/fill`
-Generate filled document with all placeholder data.
-
-**Request:**
-```json
-{
-  "document_id": "uuid",
-  "filename": "document.docx",
-  "placeholder_data": {
-    "Company Name": "Acme Corp",
-    "Investor Name": "John Doe"
-  }
-}
+### Frontend Optional
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000/api  # Defaults to this
 ```
 
-## 🌟 Usage Flow
+## 🐛 Common Issues
 
-1. **Upload**: Drag and drop a .docx legal document
-2. **Parse**: AI automatically detects placeholders in the document
-3. **Chat**: Answer questions to fill each placeholder conversationally
-4. **Generate**: Create the completed document with filled placeholders
-5. **Download**: Download the finished document with original formatting
+### "GEMINI_API_KEY not found"
+→ Create `backend/.env` with your API key
 
-## 🔒 Environment Variables
+### CORS errors
+→ Add your frontend URL to `allow_origins` in `backend/main_simple.py`
 
-### Backend (.env)
-```
-OPENAI_API_KEY=your_openai_api_key_here
-ENVIRONMENT=development
-```
-
-### Frontend (.env.local)
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
-```
-
-## 🚀 Deployment
-
-### Backend (Render/Railway)
-1. Connect your repository
-2. Set environment variables
-3. Deploy with `uvicorn main:app --host 0.0.0.0 --port $PORT`
-
-### Frontend (Vercel)
-1. Connect your repository
-2. Set build command: `cd frontend && npm run build`
-3. Set output directory: `frontend/.next`
-4. Set environment variables
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+### Build errors
+→ Run `npm install` in frontend directory
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License
 
-## 🆘 Support
+## 🤝 Contributing
 
-For support, please open an issue in the GitHub repository or contact the development team.
+Pull requests are welcome! For major changes, please open an issue first.
+
+## 👨‍💻 Author
+
+Built with ❤️ for modern legal document automation
 
 ---
 
-Built with ❤️ for streamlined legal document automation.
+**Note**: This is a demo application. For production use, implement:
+- Proper database (PostgreSQL/MongoDB)
+- Real password hashing (bcrypt)
+- Rate limiting
+- Error monitoring (Sentry)
+- Proper logging
+- API key rotation
+- User session management

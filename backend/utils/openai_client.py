@@ -53,6 +53,41 @@ async def extract_placeholders_with_ai(document_text: str) -> List[str]:
         print(f"OpenAI API error: {e}")
         return []
 
+async def analyze_document(document_text: str) -> str:
+    """
+    Analyze the document and provide a brief explanation of what it entails.
+    """
+    system_prompt = """
+    You are an AI legal assistant. Analyze the provided legal document and give a brief, clear explanation of:
+    1. What type of document this is
+    2. The main purpose and key provisions
+    3. Who the parties involved are (in general terms)
+    4. Any important legal implications or considerations
+    
+    Keep your response conversational, professional, and under 200 words. Make it accessible to non-lawyers.
+    """
+    
+    user_prompt = f"Please analyze this legal document and explain what it entails:\n\n{document_text[:4000]}"
+    
+    try:
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+            max_tokens=300
+        )
+        
+        return response.choices[0].message.content.strip()
+        
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        # Fallback analysis
+        return "This appears to be a legal document that requires filling in specific information. I'll help you complete the placeholders step by step."
+
 async def generate_chat_question(placeholder: str, context: Dict[str, Any] = None) -> str:
     """
     Generate a conversational question for a specific placeholder.

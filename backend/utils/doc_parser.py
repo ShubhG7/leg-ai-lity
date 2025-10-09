@@ -5,7 +5,7 @@ Document parsing utilities for extracting placeholders from .docx files.
 import re
 from docx import Document
 from typing import List, Set
-from .openai_client import extract_placeholders_with_ai
+from .gemini_client import extract_placeholders_with_ai
 
 def extract_text_from_docx(file_path: str) -> str:
     """

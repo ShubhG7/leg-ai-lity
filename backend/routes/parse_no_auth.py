@@ -1,16 +1,14 @@
 """
-Parse endpoint for extracting placeholders from uploaded documents.
+Parse endpoint without authentication for testing.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from typing import List
 import os
 import uuid
 import aiofiles
 from utils.doc_parser import extract_all_placeholders, extract_text_from_docx
-from utils.gemini_client import analyze_document
-from utils.auth import get_current_user, User
 
 router = APIRouter()
 
@@ -20,10 +18,10 @@ class ParseResponse(BaseModel):
     filename: str
     document_analysis: str
 
-@router.post("/parse", response_model=ParseResponse)
-async def parse_document(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+@router.post("/parse-no-auth", response_model=ParseResponse)
+async def parse_document_no_auth(file: UploadFile = File(...)):
     """
-    Parse uploaded .docx document and extract placeholders.
+    Parse uploaded .docx document and extract placeholders (no auth required).
     """
     # Validate file type
     if not file.filename.endswith('.docx'):
@@ -44,9 +42,9 @@ async def parse_document(file: UploadFile = File(...), current_user: User = Depe
         # Extract placeholders
         placeholders = await extract_all_placeholders(temp_file_path)
         
-        # Analyze document content
+        # Simple document analysis (no OpenAI)
         document_text = extract_text_from_docx(temp_file_path)
-        document_analysis = await analyze_document(document_text)
+        document_analysis = f"This document appears to be a legal agreement with {len(placeholders)} placeholders that need to be filled. The document contains approximately {len(document_text.split())} words."
         
         return ParseResponse(
             placeholders=placeholders,
@@ -60,8 +58,3 @@ async def parse_document(file: UploadFile = File(...), current_user: User = Depe
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
-
-@router.get("/parse/health")
-async def parse_health():
-    """Health check for parse service."""
-    return {"status": "healthy", "service": "parse"}

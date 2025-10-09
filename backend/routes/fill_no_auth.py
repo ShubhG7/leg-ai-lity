@@ -1,15 +1,14 @@
 """
-Fill endpoint for generating completed documents with filled placeholders.
+Fill endpoint without authentication for testing.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict
 import os
 import uuid
 from utils.doc_filler import fill_document_placeholders
-from utils.auth import get_current_user, User
 
 router = APIRouter()
 
@@ -23,10 +22,10 @@ class FillResponse(BaseModel):
     filled_document_id: str
     filename: str
 
-@router.post("/fill", response_model=FillResponse)
-async def fill_document(request: FillRequest, current_user: User = Depends(get_current_user)):
+@router.post("/fill-no-auth", response_model=FillResponse)
+async def fill_document_no_auth(request: FillRequest):
     """
-    Fill placeholders in document and return download URL.
+    Fill placeholders in document and return download URL (no auth required).
     """
     # Find the original document
     original_file_path = f"temp/{request.document_id}_{request.filename}"
@@ -62,10 +61,10 @@ async def fill_document(request: FillRequest, current_user: User = Depends(get_c
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error filling document: {str(e)}")
 
-@router.get("/download/{filename}")
-async def download_document(filename: str):
+@router.get("/download-no-auth/{filename}")
+async def download_document_no_auth(filename: str):
     """
-    Download a filled document.
+    Download a filled document (no auth required).
     """
     file_path = f"temp/{filename}"
     
@@ -77,8 +76,3 @@ async def download_document(filename: str):
         filename=filename,
         media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
-
-@router.get("/fill/health")
-async def fill_health():
-    """Health check for fill service."""
-    return {"status": "healthy", "service": "fill"}
