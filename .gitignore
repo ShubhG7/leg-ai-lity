@@ -37,3 +37,7 @@ backend/temp/
 npm-debug.log*
 yarn-debug.log*
 
+
+# Env files
+backend/.env
+frontend/.env*

@@ -9,16 +9,25 @@ __pycache__/
 venv/
 ENV/
 env/
+.venv/
+.venv*/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.*
 
 # Temp files
 temp/
 *.docx
 !test_safe_agreement.docx
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
 
 # IDE
 .vscode/
@@ -26,6 +35,8 @@ temp/
 *.swp
 *.swo
 *~
+.history/
+.fleet/
 
 # OS
 .DS_Store
@@ -35,7 +46,69 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
 
 # Logs
 *.log
+logs/
+
+# Build and packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+.wheelhouse/
+__pypackages__/
+develop-eggs/
+parts/
+sdist/
+var/
+*.manifest
+*.spec
+
+# Type checker and tool caches
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+.hypothesis/
+.cache/
+.pytest_cache/
+
+# Virtual environments
+# (covered above)
+
+# Coverage artifacts
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+*.lcov
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local databases
+*.sqlite
+*.sqlite3
+
+# Lock files (optional)
+poetry.lock
+Pipfile.lock
+requirements.lock
+requirements.txt.lock
+
+# Mac quarantine files
+*.icloud
+
+# Binary artifacts
+*.bin
+*.dll
+*.dylib
+*.exe
+
+# Misc
+.DS_Store
+Thumbs.db
 
