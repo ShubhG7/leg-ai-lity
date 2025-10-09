@@ -280,6 +280,15 @@ async def generate_conversational_response(
     - Only suggest filling fields when the user seems ready
     - Make the experience educational and empowering
     - Create trust through knowledge sharing
+
+    STRUCTURED DATA EXTRACTION:
+    - When the user provides information that maps to known placeholders, extract it as structured JSON.
+    - Use the provided placeholders list to decide the canonical placeholder name.
+    - Normalize values (e.g., trim quotes and leading phrases like "the", capitalize names like companies and people):
+      Examples: "company name is shasha" → {"Company Name": "Shasha"}
+               "valuation cap: 8m" → {"Valuation Cap": "$8,000,000"}
+               "email is test@ex.com" → {"Email Address": "test@ex.com"}
+    - Return both a conversational reply and a machine-readable map extracted_fields.
     """
     
     user_prompt = f"""
@@ -297,8 +306,19 @@ async def generate_conversational_response(
     3. If it's INFORMATION (providing data like a name, number, date):
        - Acknowledge what they provided
        - Ask about the next field naturally
+    4. Attempt structured extraction:
+       - Decide if this message contains values for any of these placeholders: {placeholders}
+       - Use exact placeholder names from that list where possible (case-insensitive match)
+       - If a close match exists (ignoring case, punctuation, spacing), use that canonical placeholder
+       - Output JSON with keys as placeholder names and values as normalized user values.
     
     Respond conversationally and naturally. Be helpful, knowledgeable, and friendly.
+    
+    Return your result in a 2-part format separated by a unique delimiter line:
+    ===RESPONSE===
+    [Your conversational response here]
+    ===EXTRACTED_FIELDS_JSON===
+    {{ "placeholder": "value", ... }} or {{}} if none
     """
     
     try:
@@ -307,16 +327,53 @@ async def generate_conversational_response(
         response = model.generate_content(f"{system_prompt}\n\n{user_prompt}")
         
         # Clean up response
-        text = response.text.strip()
-        text = text.replace('**', '').replace('*', '').replace('_', '')
-        text = text.strip('"\'')
-        
-        # Let the AI handle everything - don't auto-detect field filling
-        # The AI's response will naturally guide the conversation
+        raw = response.text or ""
+        raw = raw.strip()
+        # Split by delimiter
+        conversational = raw
+        extracted_fields: Dict[str, str] = {}
+        if '===EXTRACTED_FIELDS_JSON===' in raw:
+            parts = raw.split('===EXTRACTED_FIELDS_JSON===')
+            conversational = parts[0].replace('===RESPONSE===', '').strip()
+            json_part = parts[1].strip()
+            # Attempt to load JSON object from the tail
+            try:
+                # find JSON braces
+                start = json_part.find('{')
+                end = json_part.rfind('}')
+                if start != -1 and end != -1 and end > start:
+                    json_str = json_part[start:end+1]
+                    extracted_fields = json.loads(json_str)
+            except Exception as _:
+                extracted_fields = {}
+
+        conversational = conversational.replace('**', '').replace('*', '').replace('_', '').strip('"\'').strip()
+
+        # Normalize keys to canonical placeholders based on provided list (case/punct-insensitive)
+        def normalize_key(s: str) -> str:
+            import re as _re
+            return _re.sub(r'[^a-z0-9]', '', s.lower())
+
+        canon_map = {normalize_key(p): p for p in placeholders}
+        normalized_extracted: Dict[str, str] = {}
+        for k, v in (extracted_fields or {}).items():
+            nk = normalize_key(k)
+            canon = canon_map.get(nk)
+            if not canon:
+                # try looser match by removing spaces only
+                canon = next((p for n,p in canon_map.items() if n == nk), None)
+            if canon and isinstance(v, str):
+                val = v.strip().strip('"\'')
+                # Simple capitalization for names
+                if 'name' in canon.lower():
+                    val = val[:1].upper() + val[1:] if val else val
+                normalized_extracted[canon] = val
+
         return {
-            "response": text,
+            "response": conversational,
             "suggested_field": None,
-            "should_fill_field": False  # Let frontend handle field detection manually
+            "should_fill_field": bool(normalized_extracted),
+            "extracted_fields": normalized_extracted or None,
         }
         
     except Exception as e:

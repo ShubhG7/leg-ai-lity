@@ -21,6 +21,7 @@ class ConversationalChatResponse(BaseModel):
     response: str
     suggested_field: Optional[str] = None
     should_fill_field: bool = False
+    extracted_fields: Optional[Dict[str, str]] = None  # placeholder -> normalized value
 
 @router.post("/chat/conversational", response_model=ConversationalChatResponse)
 async def conversational_chat(request: ConversationalChatRequest):
