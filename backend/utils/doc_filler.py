@@ -16,32 +16,85 @@ def fill_document_placeholders(input_file_path: str, output_file_path: str, plac
         # Load the document
         doc = Document(input_file_path)
         
+        # Create a mapping of original placeholders to cleaned values
+        # This handles case-insensitive matching and formatting
+        placeholder_mapping = {}
+        for key, value in placeholder_data.items():
+            # Create variations of the placeholder for matching
+            variations = [
+                key,  # Original
+                key.title(),  # Title case
+                key.lower(),  # Lower case
+                key.upper(),  # Upper case
+                f"[{key}]",  # With brackets
+                f"[{key.title()}]",  # With brackets, title case
+                f"[{key.lower()}]",  # With brackets, lower case
+                f"[{key.upper()}]",  # With brackets, upper case
+            ]
+            for variation in variations:
+                placeholder_mapping[variation] = value
+        
         # Replace placeholders in paragraphs
         for paragraph in doc.paragraphs:
+            original_text = paragraph.text
+            new_text = original_text
+            
+            # Replace bracket placeholders first (most precise)
             for placeholder, value in placeholder_data.items():
-                # Replace [Placeholder] format
-                bracket_pattern = f"\\[{re.escape(placeholder)}\\]"
-                paragraph_text = re.sub(bracket_pattern, value, paragraph.text, flags=re.IGNORECASE)
+                # Try different bracket formats
+                patterns = [
+                    f"\\[{re.escape(placeholder)}\\]",
+                    f"\\[{re.escape(placeholder.title())}\\]",
+                    f"\\[{re.escape(placeholder.lower())}\\]",
+                    f"\\[{re.escape(placeholder.upper())}\\]",
+                ]
                 
-                # Replace underscore format (find and replace context-based)
-                # This is more complex as we need to maintain formatting
-                if paragraph_text != paragraph.text:
-                    # Clear existing runs and add new text
-                    paragraph.clear()
-                    paragraph.add_run(paragraph_text)
+                for pattern in patterns:
+                    new_text = re.sub(pattern, value, new_text, flags=re.IGNORECASE)
+            
+            # Replace dollar amount placeholders like $[Amount]
+            for placeholder, value in placeholder_data.items():
+                if any(keyword in placeholder.lower() for keyword in ['amount', 'price', 'value', 'cost', 'investment', 'purchase']):
+                    dollar_patterns = [
+                        f"\\$\\[{re.escape(placeholder)}\\]",
+                        f"\\$\\[{re.escape(placeholder.title())}\\]",
+                    ]
+                    for pattern in dollar_patterns:
+                        # Format monetary values properly
+                        if value.replace('.', '').replace(',', '').isdigit():
+                            formatted_value = f"${value}" if not value.startswith('$') else value
+                        else:
+                            formatted_value = value
+                        new_text = re.sub(pattern, formatted_value, new_text, flags=re.IGNORECASE)
+            
+            # Update paragraph if text changed
+            if new_text != original_text:
+                paragraph.clear()
+                paragraph.add_run(new_text)
         
         # Replace placeholders in tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
+                        original_text = paragraph.text
+                        new_text = original_text
+                        
+                        # Apply same replacement logic as paragraphs
                         for placeholder, value in placeholder_data.items():
-                            bracket_pattern = f"\\[{re.escape(placeholder)}\\]"
-                            paragraph_text = re.sub(bracket_pattern, value, paragraph.text, flags=re.IGNORECASE)
+                            patterns = [
+                                f"\\[{re.escape(placeholder)}\\]",
+                                f"\\[{re.escape(placeholder.title())}\\]",
+                                f"\\[{re.escape(placeholder.lower())}\\]",
+                                f"\\[{re.escape(placeholder.upper())}\\]",
+                            ]
                             
-                            if paragraph_text != paragraph.text:
-                                paragraph.clear()
-                                paragraph.add_run(paragraph_text)
+                            for pattern in patterns:
+                                new_text = re.sub(pattern, value, new_text, flags=re.IGNORECASE)
+                        
+                        if new_text != original_text:
+                            paragraph.clear()
+                            paragraph.add_run(new_text)
         
         # Handle underscore placeholders with more sophisticated matching
         _replace_underscore_placeholders(doc, placeholder_data)

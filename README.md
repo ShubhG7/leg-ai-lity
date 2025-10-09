@@ -6,9 +6,15 @@
 
 - **📄 Document Upload** - Upload `.docx` legal documents
 - **🔍 Smart Placeholder Detection** - Regex + AI hybrid approach for cost optimization
-- **💬 Conversational AI Assistant** - Natural language chat powered by Google Gemini 2.5 Flash
-- **📝 Intelligent Document Analysis** - Explains legal documents in plain English
-- **🎯 Interactive Field Filling** - Click-to-fill interface with real-time progress
+- **🎯 Split-Screen Interface** - Revolutionary dual-panel design:
+  - **Left Panel**: Sequential field filling with current field highlighted
+  - **Right Panel**: Always-active AI chat for questions and guidance
+  - **Preset Buttons**: "Explain this field" and "Give example" for instant AI help
+- **💡 AI-Powered Assistance** - Google Gemini 2.5 Flash provides:
+  - Document analysis and explanation
+  - Field-specific explanations and examples
+  - Conversational Q&A about the document
+- **📝 Smart Navigation** - Jump between fields, skip, go back/forward - complete control
 - **🔐 Secure Authentication** - JWT-based user authentication
 - **⬇️ Document Generation** - Preview and download completed documents
 - **🎨 Beautiful UI** - Modern, responsive design with Tailwind CSS
@@ -29,6 +35,20 @@
 - **python-docx** for document processing
 - **JWT** authentication
 - **Uvicorn** ASGI server
+
+## 🔒 Security
+
+**IMPORTANT**: All sensitive credentials are stored in environment variables, NOT in the code.
+
+- ✅ `.env` files are in `.gitignore` and will NOT be committed
+- ✅ Demo credentials are configurable via environment variables
+- ✅ See [SECURITY.md](SECURITY.md) for detailed security guidelines
+
+### For Production:
+1. Change ALL default passwords and secrets
+2. Use secure, randomly generated JWT secrets
+3. Implement proper database instead of in-memory storage
+4. Enable HTTPS and proper authentication
 
 ## 🚀 Quick Start
 

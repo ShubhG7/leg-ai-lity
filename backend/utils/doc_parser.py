@@ -6,6 +6,7 @@ import re
 from docx import Document
 from typing import List, Set
 from .gemini_client import extract_placeholders_with_ai
+from .placeholder_cleaner import clean_and_standardize_placeholders
 
 def extract_text_from_docx(file_path: str) -> str:
     """
@@ -34,75 +35,148 @@ def extract_text_from_docx(file_path: str) -> str:
 
 def extract_placeholders_regex(text: str) -> Set[str]:
     """
-    Extract placeholders using regex patterns.
-    Looks for [Text], _______, and similar patterns.
+    Extract placeholders using precise regex patterns for legal documents.
+    Focuses on proper legal document formatting.
     """
     placeholders = set()
     
-    # Pattern 1: [Text] format
-    bracket_pattern = r'\[([^\]]+)\]'
+    # Pattern 1: Standard legal brackets [Field Name]
+    # Only capture if it looks like a proper legal field
+    bracket_pattern = r'\[([A-Za-z\s]{2,50})\]'
     bracket_matches = re.findall(bracket_pattern, text)
-    placeholders.update(bracket_matches)
     
-    # Pattern 2: Multiple underscores (3 or more)
-    underscore_pattern = r'_{3,}'
-    underscore_matches = re.findall(underscore_pattern, text)
-    # Convert underscores to descriptive names based on context
-    for match in underscore_matches:
-        # Try to find context around the underscores
-        context_pattern = rf'(\w+\s+)?{re.escape(match)}(\s+\w+)?'
-        context_match = re.search(context_pattern, text)
-        if context_match:
-            before = context_match.group(1) or ""
-            after = context_match.group(2) or ""
-            placeholder_name = f"{before.strip()} {after.strip()}".strip() or "Field"
-            placeholders.add(placeholder_name)
-        else:
-            placeholders.add("Field")
-    
-    # Pattern 3: Common legal document patterns
-    legal_patterns = [
-        r'(?i)(company\s+name)',
-        r'(?i)(investor\s+name)',
-        r'(?i)(purchase\s+amount)',
-        r'(?i)(date\s+of\s+\w+)',
-        r'(?i)(signature\s+date)',
-        r'(?i)(effective\s+date)',
+    # Filter out informal text - only keep proper legal field names
+    legal_field_keywords = [
+        'name', 'amount', 'date', 'address', 'signature', 'company', 'investor',
+        'purchase', 'valuation', 'cap', 'discount', 'rate', 'shares', 'stock',
+        'equity', 'investment', 'funding', 'round', 'closing', 'effective',
+        'governing', 'law', 'state', 'notice', 'email', 'phone', 'contact'
     ]
     
-    for pattern in legal_patterns:
-        matches = re.findall(pattern, text)
-        placeholders.update([match.title() for match in matches])
+    for match in bracket_matches:
+        match_lower = match.lower().strip()
+        # Only include if it contains legal keywords or is clearly a field
+        if (any(keyword in match_lower for keyword in legal_field_keywords) or
+            len(match_lower.split()) <= 3):  # Short, likely field names
+            placeholders.add(match.strip())
     
-    return placeholders
+    # Pattern 2: Dollar amount placeholders like $[Amount]
+    dollar_pattern = r'\$\[([A-Za-z\s]{2,30})\]'
+    dollar_matches = re.findall(dollar_pattern, text)
+    for match in dollar_matches:
+        if any(keyword in match.lower() for keyword in ['amount', 'price', 'value', 'cost', 'investment', 'purchase']):
+            placeholders.add(match.strip())
+    
+    # Pattern 3: Multiple underscores with legal context
+    underscore_pattern = r'_{4,}'
+    for match in re.finditer(underscore_pattern, text):
+        # Get context around the underscores (50 chars before/after)
+        start = max(0, match.start() - 50)
+        end = min(len(text), match.end() + 50)
+        context = text[start:end].lower()
+        
+        # Only include if context suggests it's a legal field
+        if any(keyword in context for keyword in legal_field_keywords):
+            # Try to extract a meaningful field name from context
+            before_context = text[max(0, match.start() - 20):match.start()].strip()
+            after_context = text[match.end():match.end() + 20].strip()
+            
+            # Look for field indicators
+            field_indicators = ['name:', 'date:', 'amount:', 'address:', 'signature:']
+            for indicator in field_indicators:
+                if indicator in context:
+                    field_name = indicator.replace(':', '').title()
+                    placeholders.add(field_name)
+                    break
+            else:
+                # Default to generic field name
+                placeholders.add("Field")
+    
+    # Pattern 4: Explicit legal document placeholders
+    # Look for patterns like "the [Field]" or "[Field] of the Company"
+    legal_context_patterns = [
+        r'(?:the\s+)?\[([A-Za-z\s]{2,30})\]',
+        r'\[([A-Za-z\s]{2,30})\]\s+(?:of\s+the\s+)?(?:Company|Investor|Agreement)',
+        r'(?:Company|Investor|Agreement)\s+\[([A-Za-z\s]{2,30})\]'
+    ]
+    
+    for pattern in legal_context_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            if any(keyword in match.lower() for keyword in legal_field_keywords):
+                placeholders.add(match.strip())
+    
+    # Filter out any remaining informal or inappropriate text
+    filtered_placeholders = set()
+    for placeholder in placeholders:
+        placeholder_lower = placeholder.lower().strip()
+        
+        # Skip if it contains informal language
+        informal_words = ['oats', 'monday', 'next week', 'keep', 'you can', 'informal', 'title', 'field']
+        if any(word in placeholder_lower for word in informal_words):
+            continue
+            
+        # Skip generic terms (but allow them if they're part of a compound term)
+        if len(placeholder.split()) == 1 and placeholder_lower in ['field', 'name', 'company', 'title', 'blank']:
+            continue
+            
+        # Clean up the placeholder
+        cleaned = placeholder.strip().title()
+        if 3 <= len(cleaned) <= 50:  # Reasonable length, minimum 3 chars
+            filtered_placeholders.add(cleaned)
+    
+    # Remove duplicates and merge similar ones
+    final_placeholders = set()
+    placeholder_list = list(filtered_placeholders)
+    
+    for placeholder in placeholder_list:
+        # Check if this is a duplicate of an existing one
+        is_duplicate = False
+        for existing in final_placeholders:
+            # Normalize for comparison (lowercase, no extra spaces)
+            norm_placeholder = ' '.join(placeholder.lower().split())
+            norm_existing = ' '.join(existing.lower().split())
+            
+            if (norm_placeholder == norm_existing or 
+                norm_placeholder in norm_existing or 
+                norm_existing in norm_placeholder):
+                # Keep the one with better formatting (proper capitalization)
+                if placeholder.count(' ') > existing.count(' '):  # More descriptive
+                    final_placeholders.discard(existing)
+                    final_placeholders.add(placeholder)
+                elif placeholder.count(' ') == existing.count(' ') and len(placeholder) > len(existing):
+                    final_placeholders.discard(existing)
+                    final_placeholders.add(placeholder)
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            final_placeholders.add(placeholder)
+    
+    # Use the advanced cleaner to standardize placeholders
+    return clean_and_standardize_placeholders(final_placeholders)
 
 async def extract_all_placeholders(file_path: str) -> List[str]:
     """
-    Extract placeholders using both regex and AI fallback.
+    Extract placeholders using Gemini AI ONLY for maximum accuracy.
     """
     # Extract text from document
     document_text = extract_text_from_docx(file_path)
     
-    # Use regex first
-    regex_placeholders = extract_placeholders_regex(document_text)
+    print(f"🤖 Using Gemini AI for placeholder detection on {len(document_text)} character document...")
     
-    # Use AI as fallback/enhancement
+    # Use Gemini AI - trust its results completely
     ai_placeholders = await extract_placeholders_with_ai(document_text)
     
-    # Combine and deduplicate
-    all_placeholders = list(regex_placeholders)
-    
-    # Add AI-found placeholders that aren't already found
-    for ai_placeholder in ai_placeholders:
-        if not any(ai_placeholder.lower() in existing.lower() or existing.lower() in ai_placeholder.lower() 
-                  for existing in all_placeholders):
-            all_placeholders.append(ai_placeholder)
-    
-    # Clean up and return
-    cleaned_placeholders = []
-    for placeholder in all_placeholders:
-        cleaned = placeholder.strip('[]_').strip()
-        if cleaned and len(cleaned) > 1:
-            cleaned_placeholders.append(cleaned)
-    
-    return list(set(cleaned_placeholders))  # Remove duplicates
+    if len(ai_placeholders) > 0:
+        print(f"✅ Gemini AI found {len(ai_placeholders)} placeholders")
+        # Remove duplicates but don't filter out any results
+        unique_placeholders = list(dict.fromkeys(ai_placeholders))  # Preserve order, remove duplicates
+        print(f"📋 After deduplication: {len(unique_placeholders)} placeholders")
+        print(f"📝 Placeholders: {unique_placeholders}")
+        return unique_placeholders
+    else:
+        print("❌ Gemini AI failed, falling back to regex...")
+        # Fallback to regex if AI fails
+        regex_placeholders = extract_placeholders_regex(document_text)
+        return list(set(regex_placeholders))

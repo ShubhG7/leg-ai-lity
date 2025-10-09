@@ -8,8 +8,8 @@ from typing import List
 import os
 import uuid
 import aiofiles
-from utils.doc_parser import extract_text_from_docx, extract_placeholders_regex
-from utils.gemini_client import analyze_document, extract_placeholders_with_ai
+from utils.doc_parser import extract_text_from_docx, extract_all_placeholders
+from utils.gemini_client import analyze_document
 
 router = APIRouter()
 
@@ -23,8 +23,12 @@ class ParseResponse(BaseModel):
 @router.post("/parse-gemini", response_model=ParseResponse)
 async def parse_document_with_gemini(file: UploadFile = File(...)):
     """
-    Parse uploaded .docx document with Gemini AI integration.
+    Parse uploaded .docx document with Gemini AI ONLY integration.
     """
+    print("=" * 80)
+    print("🚀 PARSE-GEMINI ROUTE CALLED")
+    print("=" * 80)
+    
     # Validate file type
     if not file.filename.endswith('.docx'):
         raise HTTPException(status_code=400, detail="Only .docx files are supported")
@@ -44,27 +48,10 @@ async def parse_document_with_gemini(file: UploadFile = File(...)):
         # Extract text from document
         document_text = extract_text_from_docx(temp_file_path)
         
-        # COST-OPTIMIZED HYBRID APPROACH: Regex first, Gemini as fallback
-        regex_placeholders = extract_placeholders_regex(document_text)
-        
-        # Only use Gemini AI if regex finds fewer than 3 placeholders (cost optimization)
-        if len(regex_placeholders) < 3:
-            print("Using Gemini AI fallback for placeholder detection")
-            ai_placeholders = await extract_placeholders_with_ai(document_text)
-            # Combine regex + AI results
-            all_placeholders = list(regex_placeholders) + ai_placeholders
-        else:
-            print(f"Regex found {len(regex_placeholders)} placeholders, skipping AI call")
-            all_placeholders = list(regex_placeholders)
-        
-        # Clean up placeholders
-        cleaned_placeholders = []
-        for placeholder in all_placeholders:
-            cleaned = placeholder.strip('[]_').strip()
-            if cleaned and len(cleaned) > 1:
-                cleaned_placeholders.append(cleaned)
-        
-        placeholders = list(set(cleaned_placeholders))  # Remove duplicates
+        # Use the improved placeholder extraction (Gemini AI only)
+        print(f"📄 Calling extract_all_placeholders with {temp_file_path}")
+        placeholders = await extract_all_placeholders(temp_file_path)
+        print(f"✅ Got {len(placeholders)} placeholders: {placeholders}")
         
         # Analyze document content with Gemini
         document_analysis = await analyze_document(document_text)

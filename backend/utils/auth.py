@@ -29,14 +29,19 @@ security = HTTPBearer()
 # In-memory user storage (replace with database in production)
 fake_users_db = {}
 
-# Initialize demo user
+# Initialize demo user from environment variables
 def init_demo_user():
-    if "demo@lexsy.ai" not in fake_users_db:
-        fake_users_db["demo@lexsy.ai"] = {
+    # Get demo credentials from environment variables (for security)
+    demo_email = os.getenv("DEMO_USER_EMAIL", "demo@lexsy.ai")
+    demo_password = os.getenv("DEMO_USER_PASSWORD", "demo123")
+    demo_name = os.getenv("DEMO_USER_NAME", "Demo User")
+    
+    if demo_email not in fake_users_db:
+        fake_users_db[demo_email] = {
             "id": "1",
-            "email": "demo@lexsy.ai",
-            "hashed_password": simple_hash_password("demo123"),
-            "full_name": "Demo User",
+            "email": demo_email,
+            "hashed_password": simple_hash_password(demo_password),
+            "full_name": demo_name,
             "is_active": True,
         }
 

@@ -6,6 +6,10 @@ import os
 import google.generativeai as genai
 from typing import List, Dict, Any, Optional
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def get_gemini_client():
     """Get Gemini client with lazy initialization."""
@@ -19,33 +23,112 @@ def get_gemini_client():
 
 async def extract_placeholders_with_ai(document_text: str) -> List[str]:
     """
-    Use Gemini to extract placeholders from document text as fallback.
+    Use Gemini to extract ALL placeholders from document text with high accuracy.
     """
     system_prompt = """
-    You are an AI legal assistant.
-    Given a legal document, extract all placeholders like [Company Name], [Investor Name], blanks (________), or similar patterns that need to be filled.
-    Return them as a JSON list of clean, descriptive strings without brackets or underscores.
-    Focus on meaningful placeholders that a user would need to fill out.
+    You are an expert legal document analyzer specializing in comprehensive placeholder detection.
     
-    Example response: ["Company Name", "Investor Name", "Investment Amount", "Date"]
+    TASK: Extract ALL placeholders that need to be filled in this legal document.
+    
+    CRITICAL REQUIREMENTS:
+    1. Find EVERY single placeholder in the document - don't miss any!
+    2. Look for ALL formats: [text], _____, $[text], (text), etc.
+    3. Include ALL instances, even if they appear multiple times
+    4. Convert to clean, descriptive field names
+    5. Expect 15-20 placeholders in a typical legal document
+    6. Return as a JSON array of strings
+    
+    PLACEHOLDER FORMATS TO DETECT:
+    - [Company Name] → "Company Name"
+    - [Investor Name] → "Investor Name" 
+    - [Date of Safe] → "Date of Safe"
+    - $[Purchase Amount] → "Purchase Amount"
+    - [State of Incorporation] → "State of Incorporation"
+    - [Governing Law Jurisdiction] → "Governing Law Jurisdiction"
+    - [Valuation Cap] → "Valuation Cap"
+    - [Discount Rate] → "Discount Rate"
+    - _____ → "Signature Field" or "Address Field" (based on context)
+    - [Email] → "Email Address"
+    - [Phone] → "Phone Number"
+    - [Address] → "Address"
+    - Signature lines, dates, amounts, names, addresses, etc.
+    
+    EXAMPLES:
+    Input: "payment by [Investor Name] of $[Purchase Amount] on [Date], [Company Name] located at [Address]"
+    Output: ["Investor Name", "Purchase Amount", "Date", "Company Name", "Address"]
+    
+    Input: "Signatures: Investor: _____ Date: _____ Company: _____ Date: _____"
+    Output: ["Investor Signature", "Investor Date", "Company Signature", "Company Date"]
+    
+    ULTIMATE GOAL: Find ALL placeholders. A SAFE agreement typically has 15-20 fields.
+    Return ONLY a JSON array, no other text.
     """
     
-    user_prompt = f"Extract placeholders from this legal document:\n\n{document_text[:3000]}"
+    user_prompt = f"""Analyze this legal document and extract ALL placeholders that need to be filled. Return as JSON array:
+
+{document_text}
+
+IMPORTANT: This document likely has 15-20 placeholders. Make sure you find ALL of them including:
+- All bracket placeholders [text]
+- All underscore placeholders _____
+- All dollar amount placeholders $[text]
+- Signature lines, dates, addresses, email fields, etc.
+- Pay special attention to the signature section at the end
+
+SCAN THE ENTIRE DOCUMENT SYSTEMATICALLY:
+1. Look at the beginning for company/investor info
+2. Look at the middle for financial terms
+3. Look at the end for signature fields
+4. Count each placeholder you find
+
+JSON array of placeholders:"""
     
     try:
         model = get_gemini_client()
         response = model.generate_content(f"{system_prompt}\n\n{user_prompt}")
         
-        content = response.text
-        # Try to parse as JSON, fallback to simple list
+        # Parse the response
+        response_text = response.text.strip()
+        print(f"Gemini raw response: {response_text[:200]}...")
+        
+        # Try to extract JSON array
         try:
-            placeholders = json.loads(content)
-            return placeholders if isinstance(placeholders, list) else []
-        except:
-            # Fallback: extract from text response
-            lines = content.strip().split('\n')
-            return [line.strip('- "[]') for line in lines if line.strip()]
-            
+            # Look for JSON array in the response
+            start_idx = response_text.find('[')
+            end_idx = response_text.rfind(']') + 1
+            if start_idx != -1 and end_idx > start_idx:
+                json_str = response_text[start_idx:end_idx]
+                placeholders = json.loads(json_str)
+                print(f"Gemini extracted {len(placeholders)} placeholders")
+                return placeholders
+        except Exception as e:
+            print(f"JSON parsing error: {e}")
+        
+        # Fallback: extract from text
+        lines = response_text.split('\n')
+        placeholders = []
+        for line in lines:
+            line = line.strip()
+            if line and ('"' in line or "'" in line):
+                # Extract quoted strings
+                import re
+                quotes = re.findall(r'["\']([^"\']+)["\']', line)
+                placeholders.extend(quotes)
+        
+        if not placeholders:
+            # Last resort: split by common delimiters
+            for delimiter in [',', ';', '\n']:
+                if delimiter in response_text:
+                    parts = response_text.split(delimiter)
+                    for part in parts:
+                        part = part.strip('"\'[] \n')
+                        if part and len(part) > 2:
+                            placeholders.append(part)
+                    break
+        
+        print(f"Gemini fallback extracted {len(placeholders)} placeholders")
+        return placeholders[:25]  # Limit to 25 placeholders
+        
     except Exception as e:
         print(f"Gemini API error: {e}")
         return []
