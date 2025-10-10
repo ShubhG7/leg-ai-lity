@@ -37,7 +37,7 @@ async def conversational_chat(request: ConversationalChatRequest):
         unfilled = [p for p in request.placeholders if p not in request.current_data]
         filled_count = len(request.current_data)
         total_count = len(request.placeholders)
-        
+
         response = await generate_conversational_response(
             user_message=request.user_message,
             placeholders=request.placeholders,
@@ -47,12 +47,18 @@ async def conversational_chat(request: ConversationalChatRequest):
             conversation_history=request.conversation_history,
             progress=(filled_count, total_count)
         )
-        
+
         return response
-        
+
     except Exception as e:
+        # Log and provide a graceful fallback instead of 500 to keep UX smooth
         print(f"Conversational chat error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return ConversationalChatResponse(
+            response="Sorry, I ran into a problem answering that. We can continue—ask another question or click a field above to fill it.",
+            suggested_field=None,
+            should_fill_field=False,
+            extracted_fields=None,
+        )
 
 @router.get("/chat/conversational/health")
 async def conversational_chat_health():

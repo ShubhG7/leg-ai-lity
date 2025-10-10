@@ -6,8 +6,10 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException, status, Depends
 from utils.auth import (
     authenticate_user, create_access_token, create_user, get_current_user,
-    UserCreate, UserLogin, Token, User, ACCESS_TOKEN_EXPIRE_MINUTES
+    UserCreate, UserLogin, Token, User, ACCESS_TOKEN_EXPIRE_MINUTES,
+    verify_google_id_token, get_user, fake_users_db
 )
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -64,6 +66,44 @@ async def login(user_credentials: UserLogin):
             full_name=user["full_name"],
             is_active=user["is_active"]
         )
+    )
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
+@router.post("/google", response_model=Token)
+async def google_login(payload: GoogleLoginRequest):
+    """Authenticate via Google ID token and issue app JWT."""
+    claims = verify_google_id_token(payload.id_token)
+    email = claims["email"]
+    full_name = claims.get("name", email.split("@")[0])
+
+    # Create or fetch user in demo in-memory store
+    user = get_user(email)
+    if not user:
+        user = {
+            "id": str(len(fake_users_db) + 1),
+            "email": email,
+            "hashed_password": "",
+            "full_name": full_name,
+            "is_active": True,
+        }
+        fake_users_db[email] = user
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": email}, expires_delta=access_token_expires
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=User(
+            id=user["id"],
+            email=user["email"],
+            full_name=user["full_name"],
+            is_active=user["is_active"],
+        ),
     )
 
 @router.get("/me", response_model=User)

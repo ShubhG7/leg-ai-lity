@@ -285,9 +285,9 @@ async def generate_conversational_response(
     - When the user provides information that maps to known placeholders, extract it as structured JSON.
     - Use the provided placeholders list to decide the canonical placeholder name.
     - Normalize values (e.g., trim quotes and leading phrases like "the", capitalize names like companies and people):
-      Examples: "company name is shasha" → {"Company Name": "Shasha"}
-               "valuation cap: 8m" → {"Valuation Cap": "$8,000,000"}
-               "email is test@ex.com" → {"Email Address": "test@ex.com"}
+      Examples: "company name is shasha" → {{"Company Name": "Shasha"}}
+               "valuation cap: 8m" → {{"Valuation Cap": "$8,000,000"}}
+               "email is test@ex.com" → {{"Email Address": "test@ex.com"}}
     - Return both a conversational reply and a machine-readable map extracted_fields.
     """
     

@@ -11,11 +11,14 @@ import secrets
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 # Simple password hashing for demo (use bcrypt in production)
 def simple_hash_password(password: str) -> str:
@@ -92,6 +95,22 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def verify_google_id_token(id_token: str) -> dict:
+    """Verify Google ID token and return claims if valid."""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="GOOGLE_CLIENT_ID not configured")
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            id_token, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+        if not claims.get("email_verified"):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not verified")
+        return claims
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google ID token")
 
 def create_user(user_data: UserCreate) -> dict:
     """Create a new user."""

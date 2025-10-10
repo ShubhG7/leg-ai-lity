@@ -5,6 +5,89 @@ Document filling utilities for replacing placeholders with user data.
 import re
 from docx import Document
 from typing import Dict
+from datetime import datetime
+import re as _re
+
+
+def _normalize_money(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return s
+    s_lower = s.lower().replace(" ", "")
+    # 8m, 8M, 8 million, 8,000,000, $8000000
+    m = _re.match(r"^\$?([0-9][0-9,]*)(\.[0-9]+)?$", s.replace(" ", ""))
+    if m:
+        num = float((m.group(1) + (m.group(2) or "")).replace(",", ""))
+        return f"${num:,.2f}".rstrip("0").rstrip(".")
+    m = _re.match(r"^\$?([0-9]+)(m|million)$", s_lower)
+    if m:
+        num = float(m.group(1)) * 1_000_000
+        return f"${num:,.0f}"
+    m = _re.match(r"^\$?([0-9]+)(k|thousand)$", s_lower)
+    if m:
+        num = float(m.group(1)) * 1_000
+        return f"${num:,.0f}"
+    # Already starts with $
+    if s.startswith("$"):
+        return s
+    return s
+
+
+def _normalize_date(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return s
+    # Try multiple common formats without extra deps
+    candidates = [
+        "%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y",
+        "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y",
+    ]
+    for fmt in candidates:
+        try:
+            dt = datetime.strptime(s, fmt)
+            return dt.strftime("%B %d, %Y")
+        except Exception:
+            pass
+    # Simple natural language like "Oct 9 2025" or "October 9 2025"
+    try:
+        # Insert comma if "Month D YYYY"
+        m = _re.match(r"^(\w+)\s+(\d{1,2}),?\s+(\d{4})$", s)
+        if m:
+            dt = datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3)}", "%B %d %Y")
+            return dt.strftime("%B %d, %Y")
+    except Exception:
+        pass
+    return s
+
+
+def _normalize_email(raw: str) -> str:
+    s = (raw or "").strip()
+    if _re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", s):
+        return s.lower()
+    return s
+
+
+def _title_case_name(raw: str) -> str:
+    s = (raw or "").strip()
+    return " ".join([w.capitalize() if w else w for w in s.split()])
+
+
+def normalize_placeholder_values(data: Dict[str, str]) -> Dict[str, str]:
+    """Normalize user-provided values based on placeholder names."""
+    normalized: Dict[str, str] = {}
+    for key, value in (data or {}).items():
+        v = (value or "").strip().strip('"\'')
+        kl = key.lower()
+        if any(x in kl for x in ["amount", "price", "valuation", "purchase", "cap", "investment"]):
+            v = _normalize_money(v)
+        elif any(x in kl for x in ["date", "day", "closing", "effective"]):
+            v = _normalize_date(v)
+        elif "email" in kl:
+            v = _normalize_email(v)
+        elif any(x in kl for x in ["name", "investor", "company", "title"]):
+            v = _title_case_name(v)
+        normalized[key] = v
+    return normalized
 import os
 
 def fill_document_placeholders(input_file_path: str, output_file_path: str, placeholder_data: Dict[str, str]) -> str:
@@ -15,57 +98,40 @@ def fill_document_placeholders(input_file_path: str, output_file_path: str, plac
     try:
         # Load the document
         doc = Document(input_file_path)
-        
-        # Create a mapping of original placeholders to cleaned values
-        # This handles case-insensitive matching and formatting
-        placeholder_mapping = {}
-        for key, value in placeholder_data.items():
-            # Create variations of the placeholder for matching
-            variations = [
-                key,  # Original
-                key.title(),  # Title case
-                key.lower(),  # Lower case
-                key.upper(),  # Upper case
-                f"[{key}]",  # With brackets
-                f"[{key.title()}]",  # With brackets, title case
-                f"[{key.lower()}]",  # With brackets, lower case
-                f"[{key.upper()}]",  # With brackets, upper case
-            ]
-            for variation in variations:
-                placeholder_mapping[variation] = value
+
+        # Normalize incoming values up-front
+        data_normalized = normalize_placeholder_values(placeholder_data)
+
+        # Build a normalization map for placeholder keys so that
+        # "Company Name", "company_name" and "COMPANY name" all map identically
+        def normalize_key(s: str) -> str:
+            return _re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+        normalized_map: Dict[str, str] = {}
+        for k, v in (data_normalized or {}).items():
+            normalized_map[normalize_key(k)] = v
         
         # Replace placeholders in paragraphs
         for paragraph in doc.paragraphs:
             original_text = paragraph.text
             new_text = original_text
             
-            # Replace bracket placeholders first (most precise)
-            for placeholder, value in placeholder_data.items():
-                # Try different bracket formats
-                patterns = [
-                    f"\\[{re.escape(placeholder)}\\]",
-                    f"\\[{re.escape(placeholder.title())}\\]",
-                    f"\\[{re.escape(placeholder.lower())}\\]",
-                    f"\\[{re.escape(placeholder.upper())}\\]",
-                ]
-                
-                for pattern in patterns:
-                    new_text = re.sub(pattern, value, new_text, flags=re.IGNORECASE)
-            
-            # Replace dollar amount placeholders like $[Amount]
-            for placeholder, value in placeholder_data.items():
-                if any(keyword in placeholder.lower() for keyword in ['amount', 'price', 'value', 'cost', 'investment', 'purchase']):
-                    dollar_patterns = [
-                        f"\\$\\[{re.escape(placeholder)}\\]",
-                        f"\\$\\[{re.escape(placeholder.title())}\\]",
-                    ]
-                    for pattern in dollar_patterns:
-                        # Format monetary values properly
-                        if value.replace('.', '').replace(',', '').isdigit():
-                            formatted_value = f"${value}" if not value.startswith('$') else value
-                        else:
-                            formatted_value = value
-                        new_text = re.sub(pattern, formatted_value, new_text, flags=re.IGNORECASE)
+            # Replace [Placeholder] by normalizing the name between brackets
+            def repl_brackets(m: re.Match[str]) -> str:
+                inside = m.group(1)
+                key = normalize_key(inside)
+                return normalized_map.get(key, m.group(0))
+
+            new_text = re.sub(r"\[([^\]]+)\]", repl_brackets, new_text)
+
+            # Replace $[Placeholder] with normalized monetary value
+            def repl_dollar(m: re.Match[str]) -> str:
+                inside = m.group(1)
+                key = normalize_key(inside)
+                val = normalized_map.get(key)
+                return _normalize_money(val) if val is not None else m.group(0)
+
+            new_text = re.sub(r"\$\[([^\]]+)\]", repl_dollar, new_text)
             
             # Update paragraph if text changed
             if new_text != original_text:
@@ -80,17 +146,21 @@ def fill_document_placeholders(input_file_path: str, output_file_path: str, plac
                         original_text = paragraph.text
                         new_text = original_text
                         
-                        # Apply same replacement logic as paragraphs
-                        for placeholder, value in placeholder_data.items():
-                            patterns = [
-                                f"\\[{re.escape(placeholder)}\\]",
-                                f"\\[{re.escape(placeholder.title())}\\]",
-                                f"\\[{re.escape(placeholder.lower())}\\]",
-                                f"\\[{re.escape(placeholder.upper())}\\]",
-                            ]
-                            
-                            for pattern in patterns:
-                                new_text = re.sub(pattern, value, new_text, flags=re.IGNORECASE)
+                        # Apply same replacement logic as paragraphs using normalized mapping
+                        def repl_brackets_cell(m: re.Match[str]) -> str:
+                            inside = m.group(1)
+                            key = normalize_key(inside)
+                            return normalized_map.get(key, m.group(0))
+
+                        new_text = re.sub(r"\[([^\]]+)\]", repl_brackets_cell, new_text)
+
+                        def repl_dollar_cell(m: re.Match[str]) -> str:
+                            inside = m.group(1)
+                            key = normalize_key(inside)
+                            val = normalized_map.get(key)
+                            return _normalize_money(val) if val is not None else m.group(0)
+
+                        new_text = re.sub(r"\$\[([^\]]+)\]", repl_dollar_cell, new_text)
                         
                         if new_text != original_text:
                             paragraph.clear()
@@ -113,18 +183,29 @@ def _replace_underscore_placeholders(doc: Document, placeholder_data: Dict[str, 
     # This is a simplified approach - in production, you'd want more sophisticated matching
     underscore_pattern = r'_{3,}'
     
-    # Create a list of values to use for underscore replacements
-    values_list = list(placeholder_data.values())
-    value_index = 0
+    # Helper to find best value based on context
+    def resolve_value_for_context(context_text: str) -> str | None:
+        ct = (context_text or "").lower()
+        best_key = None
+        # Prefer keys whose words appear in context
+        for k in placeholder_data.keys():
+            kl = k.lower()
+            if any(word in ct for word in kl.split()):
+                best_key = k
+                # Stronger preference for address/email/name/amount
+                if any(x in kl for x in ["address", "email", "name", "amount", "date", "title"]):
+                    return placeholder_data[k]
+        return placeholder_data.get(best_key) if best_key else None
     
     for paragraph in doc.paragraphs:
         if re.search(underscore_pattern, paragraph.text):
             new_text = paragraph.text
             
-            # Replace underscores with values in order
-            while re.search(underscore_pattern, new_text) and value_index < len(values_list):
-                new_text = re.sub(underscore_pattern, values_list[value_index], new_text, count=1)
-                value_index += 1
+            # Replace each run based on local context (e.g., lines containing Address:, Email:, Name:)
+            while re.search(underscore_pattern, new_text):
+                ctx_val = resolve_value_for_context(new_text)
+                replacement = ctx_val or ""
+                new_text = re.sub(underscore_pattern, replacement, new_text, count=1)
             
             if new_text != paragraph.text:
                 paragraph.clear()
@@ -138,9 +219,10 @@ def _replace_underscore_placeholders(doc: Document, placeholder_data: Dict[str, 
                     if re.search(underscore_pattern, paragraph.text):
                         new_text = paragraph.text
                         
-                        while re.search(underscore_pattern, new_text) and value_index < len(values_list):
-                            new_text = re.sub(underscore_pattern, values_list[value_index], new_text, count=1)
-                            value_index += 1
+                        while re.search(underscore_pattern, new_text):
+                            ctx_val = resolve_value_for_context(new_text)
+                            replacement = ctx_val or ""
+                            new_text = re.sub(underscore_pattern, replacement, new_text, count=1)
                         
                         if new_text != paragraph.text:
                             paragraph.clear()
