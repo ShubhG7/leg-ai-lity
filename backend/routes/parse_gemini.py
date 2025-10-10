@@ -7,12 +7,10 @@ from pydantic import BaseModel
 from typing import List
 import os
 import aiofiles
-import tempfile
 import os.path as _path
-import secrets
-import string
 from utils.doc_parser import extract_text_from_docx, extract_all_placeholders
 from utils.gemini_client import analyze_document
+from utils.temp_utils import get_writable_temp_dir, generate_random_id
 
 router = APIRouter()
 
@@ -37,37 +35,11 @@ async def parse_document_with_gemini(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only .docx files are supported")
     
     # Resolve a writable temp directory across environments (e.g., Vercel → /tmp)
-    def _get_writable_temp_dir() -> str:
-        candidates = [
-            os.getenv("TEMP_DIR"),
-            "temp",
-            _path.join(tempfile.gettempdir(), "lexsy"),
-        ]
-        for c in candidates:
-            if not c:
-                continue
-            try:
-                os.makedirs(c, exist_ok=True)
-                test_path = _path.join(c, ".write_test")
-                with open(test_path, "w") as _tmpf:
-                    _tmpf.write("ok")
-                os.remove(test_path)
-                return c
-            except Exception:
-                continue
-        # If we reach here, no writable directory is available
-        raise HTTPException(status_code=500, detail="No writable temp directory available")
-
-    base_temp_dir = _get_writable_temp_dir()
+    base_temp_dir = get_writable_temp_dir()
     print(f"📂 Using temp dir: {base_temp_dir}")
 
-    # Secure random ID generator (serverless-safe)
-    def _generate_random_id(length: int = 16) -> str:
-        alphabet = string.ascii_lowercase + string.digits
-        return ''.join(secrets.choice(alphabet) for _ in range(length))
-
     # Generate unique document ID and construct file path
-    document_id = _generate_random_id(20)
+    document_id = generate_random_id()
     temp_file_path = _path.join(base_temp_dir, f"{document_id}_{file.filename}")
     
     try:

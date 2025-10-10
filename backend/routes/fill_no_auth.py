@@ -7,8 +7,9 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict
 import os
-import uuid
+import os.path as _path
 from utils.doc_filler import fill_document_placeholders
+from utils.temp_utils import get_writable_temp_dir, generate_random_id
 
 router = APIRouter()
 
@@ -27,19 +28,22 @@ async def fill_document_no_auth(request: FillRequest):
     """
     Fill placeholders in document and return download URL (no auth required).
     """
+    # Get writable temp directory
+    base_temp_dir = get_writable_temp_dir()
+    
     # Find the original document
-    original_file_path = f"temp/{request.document_id}_{request.filename}"
+    original_file_path = _path.join(base_temp_dir, f"{request.document_id}_{request.filename}")
     
     if not os.path.exists(original_file_path):
         raise HTTPException(status_code=404, detail="Original document not found")
     
     # Generate new document ID for filled version
-    filled_document_id = str(uuid.uuid4())
+    filled_document_id = generate_random_id()
     
     # Create output filename
     name_without_ext = request.filename.rsplit('.', 1)[0]
     filled_filename = f"{filled_document_id}_{name_without_ext}_filled.docx"
-    filled_file_path = f"temp/{filled_filename}"
+    filled_file_path = _path.join(base_temp_dir, filled_filename)
     
     try:
         # Fill the document
@@ -66,7 +70,8 @@ async def download_document_no_auth(filename: str):
     """
     Download a filled document (no auth required).
     """
-    file_path = f"temp/{filename}"
+    base_temp_dir = get_writable_temp_dir()
+    file_path = _path.join(base_temp_dir, filename)
     
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from routes import parse, fill, chat, auth
 from routes import parse_gemini, parse_no_auth, fill_no_auth, chat_no_auth, chat_gemini, chat_conversational, fields
+from utils.temp_utils import get_writable_temp_dir
 
 # Load environment variables
 load_dotenv()
@@ -31,11 +32,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create temp directory for file processing
-os.makedirs("temp", exist_ok=True)
+# Initialize and mount temp directory for file processing
+# This ensures the same directory is used across all routes
+temp_dir = get_writable_temp_dir()
+print(f"📁 Temp directory initialized: {temp_dir}")
 
 # Mount static files for serving processed documents
-app.mount("/static", StaticFiles(directory="temp"), name="static")
+app.mount("/static", StaticFiles(directory=temp_dir), name="static")
 
 # Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
