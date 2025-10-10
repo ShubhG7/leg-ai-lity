@@ -60,6 +60,32 @@ def _normalize_date(raw: str) -> str:
     return s
 
 
+def _parse_date(raw: str) -> datetime | None:
+    s = (raw or "").strip()
+    if not s:
+        return None
+    fmts = [
+        "%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y",
+        "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%m/%d/%y", "%d/%m/%y",
+    ]
+    for fmt in fmts:
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            continue
+    # Try Month D YYYY without comma
+    try:
+        m = _re.match(r"^(\w+)\s+(\d{1,2}),?\s+(\d{2,4})$", s)
+        if m:
+            year = m.group(3)
+            if len(year) == 2:
+                year = "20" + year
+            return datetime.strptime(f"{m.group(1)} {m.group(2)} {year}", "%B %d %Y")
+    except Exception:
+        pass
+    return None
+
+
 def _normalize_email(raw: str) -> str:
     s = (raw or "").strip()
     if _re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", s):
@@ -120,7 +146,48 @@ def fill_document_placeholders(input_file_path: str, output_file_path: str, plac
             def repl_brackets(m: re.Match[str]) -> str:
                 inside = m.group(1)
                 key = normalize_key(inside)
-                return normalized_map.get(key, m.group(0))
+                val = normalized_map.get(key)
+                if val is not None:
+                    return val
+                # If the doc shows a date mask like MM/DD/YYYY, honor it
+                mask = inside.strip().lower()
+                if "mm/dd/yyyy" in mask or "dd/mm/yyyy" in mask or "yyyy-mm-dd" in mask:
+                    # pick any provided date value
+                    date_val = None
+                    for k, v in (data_normalized or {}).items():
+                        if 'date' in k.lower():
+                            date_val = v
+                            break
+                    dt = _parse_date(date_val or _normalize_date(inside)) or datetime.utcnow()
+                    if "yyyy-mm-dd" in mask:
+                        return dt.strftime("%Y-%m-%d")
+                    if "dd/mm/yyyy" in mask:
+                        return dt.strftime("%d/%m/%Y")
+                    return dt.strftime("%m/%d/%Y")
+                # Heuristic for signature blocks using [name]/[title]
+                para_lower = new_text.lower()
+                party = 'company' if 'company' in para_lower else ('investor' if 'investor' in para_lower else None)
+                key_lower = key
+                if key_lower in ('name', 'signatory', 'signature'):
+                    # Prefer <Party> Signature or <Party> Name
+                    for k, v in (data_normalized or {}).items():
+                        kl = k.lower()
+                        if (party and party in kl) and (('signature' in kl) or ('name' in kl)):
+                            return v
+                    for k, v in (data_normalized or {}).items():
+                        kl = k.lower()
+                        if ('signature' in kl) or ('name' in kl):
+                            return v
+                if key_lower in ('title', 'designation', 'position'):
+                    for k, v in (data_normalized or {}).items():
+                        kl = k.lower()
+                        if (party and party in kl) and ('title' in kl or 'designation' in kl or 'position' in kl):
+                            return v
+                    for k, v in (data_normalized or {}).items():
+                        kl = k.lower()
+                        if 'title' in kl or 'designation' in kl or 'position' in kl:
+                            return v
+                return m.group(0)
 
             new_text = re.sub(r"\[([^\]]+)\]", repl_brackets, new_text)
 
@@ -150,7 +217,24 @@ def fill_document_placeholders(input_file_path: str, output_file_path: str, plac
                         def repl_brackets_cell(m: re.Match[str]) -> str:
                             inside = m.group(1)
                             key = normalize_key(inside)
-                            return normalized_map.get(key, m.group(0))
+                            val = normalized_map.get(key)
+                            if val is not None:
+                                return val
+                            # Date mask support inside tables as well
+                            mask = inside.strip().lower()
+                            if "mm/dd/yyyy" in mask or "dd/mm/yyyy" in mask or "yyyy-mm-dd" in mask:
+                                date_val = None
+                                for k, v in (data_normalized or {}).items():
+                                    if 'date' in k.lower():
+                                        date_val = v
+                                        break
+                                dt = _parse_date(date_val or _normalize_date(inside)) or datetime.utcnow()
+                                if "yyyy-mm-dd" in mask:
+                                    return dt.strftime("%Y-%m-%d")
+                                if "dd/mm/yyyy" in mask:
+                                    return dt.strftime("%d/%m/%Y")
+                                return dt.strftime("%m/%d/%Y")
+                            return m.group(0)
 
                         new_text = re.sub(r"\[([^\]]+)\]", repl_brackets_cell, new_text)
 
@@ -187,13 +271,17 @@ def _replace_underscore_placeholders(doc: Document, placeholder_data: Dict[str, 
     def resolve_value_for_context(context_text: str) -> str | None:
         ct = (context_text or "").lower()
         best_key = None
-        # Prefer keys whose words appear in context
+        party = 'company' if 'company' in ct else ('investor' if 'investor' in ct else None)
+        # Prefer keys whose words appear in context; add party bias when available
         for k in placeholder_data.keys():
             kl = k.lower()
             if any(word in ct for word in kl.split()):
                 best_key = k
-                # Stronger preference for address/email/name/amount
-                if any(x in kl for x in ["address", "email", "name", "amount", "date", "title"]):
+                # Stronger preference for party-specific match
+                if party and party in kl:
+                    return placeholder_data[k]
+                # And for specific field categories
+                if any(x in kl for x in ["address", "email", "name", "amount", "date", "title", "signature"]):
                     return placeholder_data[k]
         return placeholder_data.get(best_key) if best_key else None
     
