@@ -1,5 +1,5 @@
 """
-Simplified Lexsy AI Legal Document Assistant - FastAPI Backend
+Simplified AiLaw Legal Document Assistant - FastAPI Backend
 Main application entry point with auth-only functionality for testing.
 """
 
@@ -16,7 +16,7 @@ from utils.temp_utils import get_writable_temp_dir
 load_dotenv()
 
 app = FastAPI(
-    title="Lexsy AI Legal Document Assistant",
+    title="AiLaw Legal Document Assistant",
     description="AI-powered legal document automation platform",
     version="1.0.0"
 )
@@ -49,7 +49,7 @@ app.include_router(chat_conversational.router, prefix="/api", tags=["chat-conver
 
 @app.get("/")
 async def root():
-    return {"message": "Lexsy AI Legal Document Assistant API - Auth Only"}
+    return {"message": "AiLaw Legal Document Assistant API - Auth Only"}
 
 @app.get("/health")
 async def health_check():

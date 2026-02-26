@@ -1,4 +1,4 @@
-# 🤖 Lexsy AI - Legal Document Assistant
+# 🤖 AiLaw - Legal Document Assistant
 
 > AI-powered legal document automation platform built with Next.js, FastAPI, and Google Gemini AI
 
@@ -106,28 +106,28 @@ Frontend will run on: `http://localhost:3000`
    - Email: `demo@lexsy.ai`
    - Password: `demo123`
 3. Upload a legal document (`.docx`)
-4. Chat with Lexsy AI to fill in the fields!
+4. Chat with AiLaw to fill in the fields!
 
 ## 💬 How to Use Conversational AI
 
 ### Ask Questions
 ```
 You: "What is a valuation cap?"
-Lexsy: "A valuation cap is essentially an upper limit on the price
+AiLaw: "A valuation cap is essentially an upper limit on the price
        per share that an investor's money will convert into..."
 ```
 
 ### Get Clarifications
 ```
 You: "Should I consult a lawyer?"
-Lexsy: "That's an excellent question! For almost any legal document,
+AiLaw: "That's an excellent question! For almost any legal document,
        it's always a good idea to consult with a qualified lawyer..."
 ```
 
 ### Fill Fields Naturally
 - **Click on any field pill** to start filling it
 - **Type naturally** in the chat
-- **Ask questions anytime** - Lexsy will answer first, then guide you
+- **Ask questions anytime** - AiLaw will answer first, then guide you
 - **Auto-completion** tracking with visual progress
 
 ## 📁 Project Structure

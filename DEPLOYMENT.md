@@ -1,4 +1,4 @@
-# Lexsy AI - Deployment Guide
+# AiLaw - Deployment Guide
 
 ## 🔐 Security Setup
 

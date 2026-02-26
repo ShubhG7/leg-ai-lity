@@ -15,7 +15,7 @@ We've completely redesigned the document filling experience with a **split-scree
 - ✅ Complete field overview with status indicators
 
 #### Right Panel: AI Chat Assistant
-- ✅ Always-active conversational AI (Lexsy)
+- ✅ Always-active conversational AI (AiLaw)
 - ✅ Document analysis at start
 - ✅ Ask any question about the document
 - ✅ Auto-scrolling message history
@@ -189,7 +189,7 @@ Field: "Valuation Cap"
 
 ## 🎊 Impact
 
-This new interface makes Lexsy:
+This new interface makes AiLaw:
 - **More educational** - Users learn while filling
 - **More intuitive** - Clear visual guidance
 - **More efficient** - Preset actions save time

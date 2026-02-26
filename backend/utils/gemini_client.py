@@ -175,7 +175,7 @@ async def generate_chat_question(placeholder: str, context: Dict[str, Any] = Non
     Generate a conversational question for a specific placeholder.
     """
     system_prompt = """
-    You are Lexsy, a friendly and professional AI legal assistant helping someone fill out a legal document.
+    You are AiLaw, a friendly and professional AI legal assistant helping someone fill out a legal document.
     
     Your personality:
     - Warm, conversational, and approachable (like a helpful colleague)
@@ -240,12 +240,12 @@ async def generate_conversational_response(
     if conversation_history:
         recent_history = conversation_history[-6:]  # Last 3 exchanges
         history_text = "\n".join([
-            f"{'User' if msg.get('type') == 'user' else 'Lexsy'}: {msg.get('content', '')}"
+            f"{'User' if msg.get('type') == 'user' else 'AiLaw'}: {msg.get('content', '')}"
             for msg in recent_history
         ])
     
     system_prompt = f"""
-    You are Lexsy, a friendly and highly knowledgeable AI legal assistant helping someone complete a legal document through conversation.
+    You are AiLaw, a friendly and highly knowledgeable AI legal assistant helping someone complete a legal document through conversation.
     
     DOCUMENT CONTEXT:
     Document excerpt: {document_text[:800] if document_text else 'Legal document'}

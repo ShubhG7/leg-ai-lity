@@ -57,7 +57,7 @@ Two powerful buttons that trigger AI responses **automatically**:
 ## 💬 Right Panel: AI Chat
 
 ### Features
-- **Always-active conversation** with Lexsy AI
+- **Always-active conversation** with AiLaw
 - **Document analysis** shown at start
 - **Ask anything**:
   - "What does 'Post-Money Valuation' mean?"

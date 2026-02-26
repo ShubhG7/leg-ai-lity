@@ -1,5 +1,5 @@
 """
-Lexsy AI Legal Document Assistant - FastAPI Backend
+AiLaw Legal Document Assistant - FastAPI Backend
 Main application entry point with CORS and route configuration.
 """
 
@@ -17,7 +17,7 @@ from utils.temp_utils import get_writable_temp_dir
 load_dotenv()
 
 app = FastAPI(
-    title="Lexsy AI Legal Document Assistant",
+    title="AiLaw Legal Document Assistant",
     description="AI-powered legal document automation platform",
     version="1.0.0"
 )
@@ -55,7 +55,7 @@ app.include_router(fields.router, prefix="/api", tags=["fields"])
 
 @app.get("/")
 async def root():
-    return {"message": "Lexsy AI Legal Document Assistant API"}
+    return {"message": "AiLaw Legal Document Assistant API"}
 
 @app.get("/health")
 async def health_check():
